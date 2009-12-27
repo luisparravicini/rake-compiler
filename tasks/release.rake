@@ -1,8 +1,7 @@
 begin
-  gem 'rubyforge', '~> 1.0.1'
   require 'rubyforge'
-rescue Exception
-  nil
+rescue LoadError
+  warn "rubyforge gem is required to generate releases, please install it (gem install rubyforge)."
 end
 
 if defined?(RubyForge) then
@@ -36,7 +35,7 @@ if defined?(RubyForge) then
       # read changes
       changes = begin
                   h = File.read("History.txt")
-                  h.split(/^(==.*)/)[1..2].join.strip
+                  h.split(/^(===+ .*)/)[1..2].join.strip
                 rescue
                   warn "Missing History.txt"
                   ''
@@ -69,6 +68,4 @@ if defined?(RubyForge) then
   else
     warn "no GEM_SPEC is found or defined. 'release' task cannot work without it."
   end
-else
-  warn "rubyforge gem is required to generate releases, please install it (gem install rubyforge)."
 end

@@ -1,14 +1,14 @@
 = rake-compiler
 
-rake-compiler aims to help Gem developers while dealing with Ruby C
-extensions, simplifiying the code and reducing the duplication.
+rake-compiler aims to help Gem developers deal with Ruby extensions, simplifying
+code and reducing duplication.
 
-It follows *convention over configuration* and set an standarized 
-structure to build and package C extensions in your gems.
+It followss *convention over configuration* and sets a standardized structure to
+build and package both C and Java extensions in your gems.
 
-This is the result of expriences dealing with several Gems that required 
-native extensions across platforms and different user configurations 
-where details like portability and clarity of code were lacking.
+This is the result of experiences dealing with several Gems that required native
+extensions across platforms and different user configurations where details like
+portability and clarity of code were lacking.
 
 == An Overview
 
@@ -18,9 +18,12 @@ Let's summarize what rake-compiler provides:
 
 * Painlessly build extensions on different platforms (Linux, OSX and Windows).
 
+* Painlessly build extensions for different Ruby implementations (JRuby,
+  Rubinius and MRI).
+
 * Allow multiple extensions be compiled inside the same gem.
 
-* Mimics RubyGems installation process, so helps as test environment.
+* Mimics RubyGems installation process, so helps as a test environment.
 
 * Simplify cross platform compilation of extensions (target Windows from Linux).
 
@@ -32,13 +35,6 @@ First, you need to install the gem:
 
   $ gem install rake-compiler
 
-Since this package is in constant evolution, you could try installing it
-from GitHub:
-
-  $ gem install luislavena-rake-compiler --source http://gems.github.com
-
-The development gem is usually in pretty good shape actually.
-
 == Now what? (Usage)
 
 Now that you have the gem installed, let's give your project some structure.
@@ -46,11 +42,12 @@ Now that you have the gem installed, let's give your project some structure.
 === Structure
 
 Let's say we want to compile an extension called 'hello_world', so we should
-organize the code and folders that will help rake-compiler do it's job:
+organize the code and folders that will help rake-compiler do its job:
 
     |-- ext
     |   `-- hello_world
     |       |-- extconf.rb
+    |       |-- HelloWorldService.java
     |       `-- hello_world.c
     |-- lib
     `-- Rakefile
@@ -63,20 +60,28 @@ to find code and also contribute back to your project more easily.
 So now it's time to introduce the code to compile our extension:
 
     # File: Rakefile
-    
+
     require 'rake/extensiontask'
-    
+
     Rake::ExtensionTask.new('hello_world')
 
 Ok, that's it. No other line of code.
 
+If we wanted to do the same for a JRuby extension (written in Java):
+
+    # File: Rakefile
+
+    require 'rake/javaextensiontask'
+
+    Rake::JavaExtensionTask.new('hello_world')
+
 === Compile process
 
 Those *two* lines of code automatically added the needed rake tasks to build
-the hello_world extension:
+the hello_world extension. Running Rake on 1.8.x/1.9 (MRI):
 
   $ rake -T
-  (in /home/user/my_extesion)
+  (in /home/user/my_extension)
   rake compile                # Compile the extension(s)
   rake compile:hello_world    # Compile just the hello_world extension
 
@@ -90,6 +95,10 @@ Will do all the compile process for us, putting the result extension inside
 NOTE: Please be aware that building C extensions requires the proper
 development environment for your Platform, which includes libraries, headers
 and build tools. Check your distro / vendor documentation on how to install it.
+
+NOTE: Building Java extensions requires the <tt>javac</tt>, part of the Java
+Development Kit (JDK). This should be included by default on Mac OS X, and
+downloadable from http://java.sun.com for other operating systems.
 
 === Generate native gems
 
@@ -141,6 +150,23 @@ Plus, you have the functionality to build native versions of the gem:
 
 You get two gems for the price of one.
 
+And the same for JRuby extensions:
+
+  # rake java gem
+  (... compilation output ...)
+  mkdir -p pkg
+    Successfully built RubyGem
+    Name: my_gem
+    Version: 0.1.0
+    File: my_gem-0.1.0.gem
+  mv my_gem-0.1.0.gem pkg/my_gem-0.1.0.gem
+    Successfully built RubyGem
+    Name: my_gem
+    Version: 0.1.0
+    File: my_gem-0.1.0-java.gem
+  mv my_gem-0.1.0-java.gem pkg/my_gem-0.1.0-java.gem
+
+
 === What about breaking the standards? (Customization)
 
 In case you want to bend the convention established, rake-compiler let you
@@ -160,10 +186,10 @@ personalize several settings for <tt>Rake::ExtensionTask</tt>:
 
 == Future is now: Cross compilation
 
-rake-compiler provides now an standarized way to generate, from Linux or OSX
+rake-compiler provides now an standardized way to generate, from Linux or OSX
 both extensions and gem binaries for Windows!
 
-It takes advantages from GCC host/target to build binaries (for target) on 
+It takes advantages from GCC host/target to build binaries (for target) on
 different OS (hosts).
 
 === How I enjoy this?
@@ -171,16 +197,19 @@ different OS (hosts).
 Besides having the development tool chain installed (GCC), you should install
 also <tt>mingw32</tt> cross compilation package.
 
-Dependending on your operating system distribution, a simple <tt>apt-get install mingw32</tt>
-will be enough.
+Installation depends will depend on your operating system/distribution. On
+Ubuntu and Debian machines, a simple <tt>apt-get install mingw32</tt> will be
+enough.
 
-Please check OSX documentation about installing mingw32 from macports.
+On OSX, mingw32 is available via MacPorts: <tt>port install i386-mingw32-gcc</tt>
+(ensure you update your ports tree before hand as <tt>mingw32</tt> has been
+been broken).
 
-=== I have my toolchain, now what?
+=== I have my tool-chain, now what?
 
 You need to build Ruby for Windows.
 
-Relax, no need to freak out. rake-compiler do it for you:
+Relax, no need to freak out! Let rake-compiler do it for you:
 
   rake-compiler cross-ruby
 
@@ -194,13 +223,18 @@ supply a <tt>VERSION</tt>:
 
 === Let's build some gems!
 
-Now, you only need to use additional options in your extension defintion:
+Now, you only need to use additional options in your extension definition:
 
     Rake::ExtensionTask.new('my_extension', gem_spec) do |ext|
       ext.cross_compile = true                # enable cross compilation (requires cross compile toolchain)
       ext.cross_platform = 'i386-mswin32'     # forces the Windows platform instead of the default one
                                               # configure options only for cross compile
       ext.cross_config_options << '--with-something'
+
+      # perform alterations on the gemspec when cross compiling
+      ext.cross_compiling do |gem_spec|
+        gem_spec.post_install_message = "You installed the binary version of this gem!"
+      end
     end
 
 By default, cross compilation targets 'i386-mingw32' which is default GCC platform
@@ -225,11 +259,26 @@ And you're done, yeah.
 
 You can specify against with version of Ruby you want to build the extension:
 
-  rake cross compile RUBY_CC_VERSION=1.8
+  rake cross compile RUBY_CC_VERSION=1.8.6
 
 If you installed <tt>1.9.1</tt>, you can do:
 
-  rake cross compile RUBY_CC_VERSION=1.9
+  rake cross compile RUBY_CC_VERSION=1.9.1
+
+Even more, you can target multiple versions (ie. 1.8.6 and 1.9.1):
+
+  rake cross compile RUBY_CC_VERSION=1.8.6:1.9.1
+
+And more exiting, bundle both binaries in one "fat" Gem:
+
+  rake cross native gem RUBY_CC_VERSION=1.8.6:1.9.1
+
+That will place binaries for 1.8 and 1.9 versions of ruby inside <tt>lib_dir</tt>
+
+  lib/1.8/my_extension.so
+  lib/1.9/my_extension.so
+
+Now is up to you to make your gem load the proper one ;-)
 
 == Future
 
@@ -241,12 +290,6 @@ You can find more information about rake-compiler:
 Blog:      http://blog.mmediasys.com
 RubyForge: http://rubyforge.org/projects/rake-compiler
 GitHub:    http://github.com/luislavena/rake-compiler
-
-=== Some of the desired features
-
-* <tt>Rake::JavaJarTask</tt> to generate <tt>jar</tt> packages and gems for JRuby.
-
-  $ rake java gem
 
 == Disclaimer
 
